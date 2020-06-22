@@ -1,5 +1,8 @@
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+
+using App.Metrics;
 
 using PluralKit.Core;
 
@@ -10,12 +13,19 @@ namespace PluralKit.Bot
         private IDataStore _data;
         private IDatabase _db;
         private EmbedService _embeds;
+        private readonly ProxyService _proxy;
+        private readonly IMetrics _metrics;
+
+
         
-        public Member(IDataStore data, EmbedService embeds, IDatabase db)
+        public Member(IDataStore data, EmbedService embeds, IDatabase db, ProxyService proxy, IMetrics metrics)
         {
             _data = data;
             _embeds = embeds;
             _db = db;
+            _proxy = proxy;
+            _metrics = metrics;
+
         }
 
         public async Task NewMember(Context ctx) {
@@ -71,6 +81,33 @@ namespace PluralKit.Bot
             
             var system = await _db.Execute(c => c.QuerySystem(target.System));
             await ctx.Reply(embed: await _embeds.CreateMemberEmbed(system, target, ctx.Guild, ctx.LookupContextFor(system)));
+        }
+
+        public async Task ProxyMember(Context ctx){
+            await using var conn = await _db.Obtain();
+
+            var memberInput = await ctx.MatchMember();
+            var proxyMessage = ctx.RemainderOrNull(false);
+
+            if(memberInput == null) {
+                await ctx.Reply($"{Emojis.Error} {ctx.CreateMemberNotFoundError(ctx.PopArgument())}");
+                return;
+            }
+
+            ProxyMember member;
+            using (_metrics.Measure.Timer.Time(BotMetrics.ProxyMembersQueryTime))
+                member = (await conn.QueryProxyMembers(ctx.Message.Author.Id, ctx.Message.Channel.GuildId)).ToList().Find(member => member.Id == memberInput.Id);
+                        
+            var match = new ProxyMatch{
+                Content = proxyMessage,
+                Member = member,
+                ProxyTags = member.ProxyTags.FirstOrDefault()
+            };
+
+            if (proxyMessage == null && ctx.Message.Attachments.Count == 0)
+                await ctx.Reply($"{Emojis.Error} Must have a message!");
+            else
+                await _proxy.ExecuteProxy(conn, ctx.Message, ctx.MessageContext, match);
         }
     }
 }
