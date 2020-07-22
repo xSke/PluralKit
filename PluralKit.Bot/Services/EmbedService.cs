@@ -28,9 +28,14 @@ namespace PluralKit.Bot {
 
 
         
-        public async Task<DiscordEmbed> CreateSystemEmbed(DiscordClient client, PKSystem system, LookupContext ctx)
+        public async Task<DiscordEmbed> CreateSystemEmbed(DiscordClient client, PKSystem system, LookupContext ctx, CardOptions opts)
         {
             await using var conn = await _db.Obtain();
+
+            if(opts.PrivacyFilter == PrivacyLevel.Public)
+            {
+                ctx = LookupContext.ByNonOwner;
+            }
             
             // Fetch/render info for all accounts simultaneously
             var accounts = await conn.GetLinkedAccounts(system.Id);
@@ -41,7 +46,7 @@ namespace PluralKit.Bot {
                 .WithColor(DiscordUtils.Gray)
                 .WithTitle(system.Name ?? null)
                 .WithThumbnail(system.AvatarUrl)
-                .WithFooter($"System ID: {system.Hid} | Created on {system.Created.FormatZoned(system)}");
+                .WithFooter($"System ID: {system.Hid} | Created on {system.Created.FormatZoned(system)}{opts.createFooter()}");
  
             var latestSwitch = await _data.GetLatestSwitch(system.Id);
             if (latestSwitch != null && system.FrontPrivacy.CanAccess(ctx))
@@ -82,10 +87,15 @@ namespace PluralKit.Bot {
                 .Build();
         }
 
-        public async Task<DiscordEmbed> CreateMemberEmbed(PKSystem system, PKMember member, DiscordGuild guild, LookupContext ctx)
+        public async Task<DiscordEmbed> CreateMemberEmbed(PKSystem system, PKMember member, DiscordGuild guild, LookupContext ctx, CardOptions opts)
         {
 
             // string FormatTimestamp(Instant timestamp) => DateTimeFormats.ZonedDateTimeFormat.Format(timestamp.InZone(system.Zone));
+
+            if(opts.PrivacyFilter == PrivacyLevel.Public)
+            {
+                ctx = LookupContext.ByNonOwner;
+            }
 
             var name = member.NameFor(ctx);
             if (system.Name != null) name = $"{name} ({system.Name})";
@@ -114,7 +124,7 @@ namespace PluralKit.Bot {
                 .WithAuthor(name, iconUrl: DiscordUtils.WorkaroundForUrlBug(avatar))
                 // .WithColor(member.ColorPrivacy.CanAccess(ctx) ? color : DiscordUtils.Gray)
                 .WithColor(color)
-                .WithFooter($"System ID: {system.Hid} | Member ID: {member.Hid} {(member.MetadataPrivacy.CanAccess(ctx) ? $"| Created on {member.Created.FormatZoned(system)}":"")}");
+                .WithFooter($"System ID: {system.Hid} | Member ID: {member.Hid} {(member.MetadataPrivacy.CanAccess(ctx) ? $"| Created on {member.Created.FormatZoned(system)}":"")}{opts.createFooter()}");
 
             var description = "";
             if (member.MemberVisibility == PrivacyLevel.Private) description += "*(this member is hidden)*\n";
