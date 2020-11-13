@@ -2,10 +2,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 
 using Dapper;
 
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace PluralKit.Core
 {
@@ -55,13 +57,15 @@ namespace PluralKit.Core
                 .Invoke(null, new[] {innerValue});
         }
 
-        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
-            throw new NotImplementedException();
-
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
+        {
+            serializer.Serialize(writer, ((IPartial) value!).RawValue);
+        }
+        
         public override bool CanConvert(Type objectType) => true;
 
         public override bool CanRead => true;
-        public override bool CanWrite => false;
+        public override bool CanWrite => true;
     }
 
     public static class PartialExt
@@ -78,12 +82,29 @@ namespace PluralKit.Core
         public static Partial<TOut> Map<TIn, TOut>(this Partial<TIn> pt, Func<TIn, TOut> fn) =>
             pt.IsPresent ? Partial<TOut>.Present(fn.Invoke(pt.Value)) : Partial<TOut>.Absent;
 
+        public static Partial<TOut> Then<TIn, TOut>(this Partial<TIn> pt, Func<TIn, Partial<TOut>> fn) =>
+            (pt.IsPresent && pt.RawValue != null) ? fn.Invoke(pt.Value) : Partial<TOut>.Absent;
+
         public static void Apply<T>(this Partial<T> pt, DynamicParameters bag, QueryBuilder qb, string fieldName)
         {
             if (!pt.IsPresent) return;
 
             bag.Add(fieldName, pt.Value);
             qb.Variable(fieldName, $"@{fieldName}");
+        }
+    }
+
+    public class PartialContractResolver: DefaultContractResolver
+    {
+        protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
+        {
+            var property = base.CreateProperty(member, memberSerialization);
+            
+            // We want to always ignore Partial<T> where IsPresent = false 
+            if (typeof(IPartial).IsAssignableFrom(property.PropertyType))
+                property.DefaultValueHandling = DefaultValueHandling.Ignore;
+            
+            return property;
         }
     }
 }
