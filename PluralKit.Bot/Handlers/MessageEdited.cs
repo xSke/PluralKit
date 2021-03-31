@@ -49,7 +49,7 @@ namespace PluralKit.Bot
                 return;
             
             var channel = _cache.GetChannel(evt.ChannelId);
-            if (channel.Type != Channel.ChannelType.GuildText)
+            if (!DiscordUtils.IsValidGuildChannel(channel))
                 return;
             var guild = _cache.GetGuild(channel.GuildId!.Value);
             var lastMessage = _lastMessageCache.GetLastMessage(evt.ChannelId);
