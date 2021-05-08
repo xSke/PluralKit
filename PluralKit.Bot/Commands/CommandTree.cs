@@ -26,6 +26,8 @@ namespace PluralKit.Bot
         public static Command SystemFrontPercent = new Command("system frontpercent", "system [system] frontpercent [timespan]", "Shows a system's front breakdown");
         public static Command SystemPing = new Command("system ping", "system ping <enable|disable>", "Changes your system's ping preferences");
         public static Command SystemPrivacy = new Command("system privacy", "system privacy <description|members|fronter|fronthistory|all> <public|private>", "Changes your system's privacy settings");
+        public static Command SystemRemindNew = new Command("system remind", "system remind <reminder message>", "Creates a reminder for your system, that will be shown to the next member who switches in");
+        public static Command SystemReminders = new Command("system reminders", "system reminders", "Displays all reminders for your system");
         public static Command AutoproxySet = new Command("autoproxy", "autoproxy [off|front|latch|member]", "Sets your system's autoproxy mode for the current server");
         public static Command AutoproxyTimeout = new Command("autoproxy", "autoproxy timeout [<duration>|off|reset]", "Sets the latch timeout duration for your system");
         public static Command AutoproxyAccount = new Command("autoproxy", "autoproxy account [on|off]", "Toggles autoproxy globally for the current account");
@@ -49,6 +51,8 @@ namespace PluralKit.Bot
         public static Command MemberKeepProxy = new Command("member keepproxy", "member <member> keepproxy [on|off]", "Sets whether to include a member's proxy tags when proxying");
         public static Command MemberRandom = new Command("random", "random", "Shows the info card of a randomly selected member in your system.");
         public static Command MemberPrivacy = new Command("member privacy", "member <member> privacy <name|description|birthday|pronouns|metadata|visibility|all> <public|private>", "Changes a members's privacy settings");
+        public static Command MemberRemindNew = new Command("member remind", "member <member> remind <reminder message>", "Creates a reminder for another member");
+        public static Command MemberReminders = new Command("member reminders", "member <member>", "Displays all reminders for a given member and marks any unseen reminders as 'seen'");
         public static Command GroupInfo = new Command("group", "group <name>", "Looks up information about a group");
         public static Command GroupNew = new Command("group new", "group new <name>", "Creates a new group");
         public static Command GroupList = new Command("group list", "group list", "Lists all groups in this system");
@@ -93,13 +97,13 @@ namespace PluralKit.Bot
 
         public static Command[] SystemCommands = {
             SystemInfo, SystemNew, SystemRename, SystemTag, SystemDesc, SystemAvatar, SystemColor, SystemDelete, SystemTimezone,
-            SystemList, SystemFronter, SystemFrontHistory, SystemFrontPercent, SystemPrivacy, SystemProxy
+            SystemList, SystemFronter, SystemFrontHistory, SystemFrontPercent, SystemPrivacy, SystemProxy, SystemRemindNew, SystemReminders
         };
 
         public static Command[] MemberCommands = {
             MemberInfo, MemberNew, MemberRename, MemberDisplayName, MemberServerName, MemberDesc, MemberPronouns,
             MemberColor, MemberBirthday, MemberProxy, MemberAutoproxy, MemberKeepProxy, MemberGroups, MemberGroupAdd, MemberGroupRemove,
-            MemberDelete, MemberAvatar, MemberServerAvatar, MemberPrivacy, MemberRandom
+            MemberDelete, MemberAvatar, MemberServerAvatar, MemberPrivacy, MemberRandom, MemberRemindNew, MemberReminders
         };
 
         public static Command[] GroupCommands =
@@ -237,7 +241,7 @@ namespace PluralKit.Bot
                 await ctx.Execute<SystemList>(SystemList, m => m.MemberList(ctx, ctx.System));
             else if (ctx.Match("find", "search", "query", "fd", "s"))
                 await ctx.Execute<SystemList>(SystemFind, m => m.MemberList(ctx, ctx.System));
-            else if (ctx.Match("f", "front", "fronter", "fronters"))
+            else if (ctx.Match("f", "front", "fronter", "fronters")) 
             {
                 if (ctx.Match("h", "history"))
                     await ctx.Execute<SystemFront>(SystemFrontHistory, m => m.SystemFrontHistory(ctx, ctx.System));
@@ -254,6 +258,10 @@ namespace PluralKit.Bot
                 await ctx.Execute<SystemEdit>(SystemPrivacy, m => m.SystemPrivacy(ctx));
             else if (ctx.Match("ping"))
                 await ctx.Execute<SystemEdit>(SystemPing, m => m.SystemPing(ctx));
+            else if (ctx.Match("remind"))
+                await ctx.Execute<SystemRemind>(SystemRemindNew, m => m.AddReminder(ctx));
+            else if (ctx.Match("reminders"))
+                await ctx.Execute<SystemRemind>(SystemReminders, m => m.GetReminders(ctx));
             else if (ctx.Match("commands", "help"))
                 await PrintCommandList(ctx, "systems", SystemCommands);
             else if (ctx.Match("groups", "gs", "g"))
@@ -361,6 +369,10 @@ namespace PluralKit.Bot
                 await ctx.Execute<MemberEdit>(MemberPrivacy, m => m.Privacy(ctx, target, PrivacyLevel.Private));
             else if (ctx.Match("public", "shown", "show"))
                 await ctx.Execute<MemberEdit>(MemberPrivacy, m => m.Privacy(ctx, target, PrivacyLevel.Public));
+            else if (ctx.Match("remind"))
+                await ctx.Execute<Member>(MemberRemindNew, m => m.AddReminder(ctx, target));
+            else if (ctx.Match("reminders"))
+                await ctx.Execute<Member>(MemberReminders, m => m.GetReminders(ctx, target));
             else if (ctx.Match("soulscream"))
                 await ctx.Execute<Member>(MemberInfo, m => m.Soulscream(ctx, target));
             else if (!ctx.HasNext()) // Bare command

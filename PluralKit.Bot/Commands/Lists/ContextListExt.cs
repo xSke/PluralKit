@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -165,6 +165,78 @@ namespace PluralKit.Bot
                     eb.Field(new(m.NameFor(ctx), profile.ToString().Truncate(1024)));
                 }
             }
+        }
+        public static async Task RenderMemberReminderList(
+            this Context ctx, 
+            IDatabase db, 
+            MemberId member, 
+            string embedTitle, 
+            string color, 
+            bool showSeen) 
+        {
+            var reminders = await db.Execute(conn =>
+                showSeen ? conn.QueryReminders(ctx.System, member) : conn.QueryReminders(ctx.System, member, false)
+            ).ToListAsync();
+
+            var itemsPerPage = 25;
+
+            if (reminders.Count > 0 || showSeen) {
+                await ctx.Paginate(
+                    reminders.ToAsyncEnumerable(), 
+                    reminders.Count, 
+                    itemsPerPage, 
+                    embedTitle, 
+                    color, 
+                    (eb, page) => 
+                    {
+                        RenderReminderListPage(reminders.Count, page, eb, ctx.System.Zone);
+                        return Task.CompletedTask;
+                    });
+            }
+        }
+
+        public static async Task RenderSystemReminderList(
+            this Context ctx, 
+            IDatabase db, 
+            string embedTitle, 
+            string color, 
+            bool showSeen) 
+        {
+            var reminders = await db.Execute(conn => 
+                showSeen ? conn.QueryReminders(ctx.System) : conn.QueryReminders(ctx.System, seen: false)
+            ).ToListAsync();
+
+            var itemsPerPage = 25;
+
+            if (reminders.Count > 0 || showSeen) {
+                await ctx.Paginate(
+                    reminders.ToAsyncEnumerable(), 
+                    reminders.Count, 
+                    itemsPerPage, 
+                    embedTitle, 
+                    color, 
+                    (eb, page) => 
+                    {
+                        RenderReminderListPage(reminders.Count, page, eb, ctx.System.Zone);
+                        return Task.CompletedTask;
+                    }
+                );
+            }
+        }
+
+        private static void RenderReminderListPage(
+            int count, 
+            IEnumerable<PKReminder> page, 
+            EmbedBuilder eb, 
+            DateTimeZone tz) 
+        {
+            eb.Footer(new("result".ToQuantity(count)));
+            eb.WithSimpleLineContent(
+                page.Select(r => {
+                    string emoji = !r.Seen ? Emojis.New : "";
+                    string guildId = r.Guild == null ? "@me" : r.Guild.ToString();
+                    return $"[Click to see message {Emojis.RightArrow}](https://discord.com/channels/{guildId}/{r.Channel}/{r.Mid}) | {r.Timestamp.FormatZoned(tz)} {emoji}";
+            }));
         }
     }
 }

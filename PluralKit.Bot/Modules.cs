@@ -64,6 +64,7 @@ namespace PluralKit.Bot
             builder.RegisterType<SystemFront>().AsSelf();
             builder.RegisterType<SystemLink>().AsSelf();
             builder.RegisterType<SystemList>().AsSelf();
+            builder.RegisterType<SystemRemind>().AsSelf();
             builder.RegisterType<Token>().AsSelf();
             
             // Bot core

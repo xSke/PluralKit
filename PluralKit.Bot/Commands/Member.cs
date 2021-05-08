@@ -92,6 +92,37 @@ namespace PluralKit.Bot
             var system = await _db.Execute(c => _repo.GetSystem(c, target.System));
             await ctx.Reply(embed: await _embeds.CreateMemberEmbed(system, target, ctx.Guild, ctx.LookupContextFor(system)));
         }
+        public async Task AddReminder(Context ctx, PKMember target) {
+            if (ctx.System?.Id == target.System) {
+                await using var conn = await _db.Obtain();
+                await _repo.AddReminder(
+                    conn, 
+                    new PKReminder { 
+                        Mid = ctx.Message.Id, 
+                        Channel = ctx.Channel.Id, 
+                        Guild = ctx.Guild == null ? null : ctx.Guild.Id, 
+                        Member = target.Id, 
+                        System = target.System });
+                await ctx.Reply($"Added new reminder for {target.Name}");
+            }
+            else {
+                await ctx.Reply($"{Emojis.Error} You can only send reminders to your own system.");
+            }
+        }
+
+        public async Task GetReminders(Context ctx, PKMember target) {
+            if (ctx.System?.Id == target.System) {
+                await ctx.RenderMemberReminderList(
+                    _db,
+                    target.Id,
+                    $"Reminders for {target.Name}",
+                    target.Color,
+                    true);
+            }
+            else {
+                await ctx.Reply($"{Emojis.Error} You can only view reminders from your own system.");
+            }
+        }
 
         public async Task Soulscream(Context ctx, PKMember target)
         {
